@@ -3,10 +3,6 @@
 
 #include <QMainWindow>
 
-namespace Ui {
-class MainWindow;
-}
-
 class MainWindow : public QMainWindow
 {
     Q_OBJECT
@@ -14,9 +10,9 @@ class MainWindow : public QMainWindow
 public:
     explicit MainWindow(QWidget *parent = 0);
     ~MainWindow();
-
-private:
-    Ui::MainWindow *ui;
+    void keyPressEvent(QKeyEvent *event);
+    void paintEvent(QPaintEvent *event);
+    void paint();
 };
 
 #endif // MAINWINDOW_H

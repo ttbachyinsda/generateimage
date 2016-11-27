@@ -13,12 +13,13 @@ TEMPLATE = app
 
 
 SOURCES += main.cpp\
-        mainwindow.cpp \
-    deal.c
+        mainwindow.cpp
 
 HEADERS  += mainwindow.h \
     stb_image.h \
     stb_image_resize.h \
-    stb_image_write.h
+    stb_image_write.h \
+    deal.h \
+    generatefont.h
 
-FORMS    += mainwindow.ui
+FORMS    +=
