@@ -14,18 +14,22 @@ static const unsigned fontmap[95][3]={{0x0,0x0,0x0},{0x10101000,0x101010,0x10100
 #define COMMAND_SIZE 1650
 #define WINDOW_LEFT 9
 #define BEGIN_PIXEL 2
-unsigned char command[25][66];
-unsigned char memorie[WINDOW_SIZE];
-bool iscommand = true;
-int commandline=0;
-int cursorx=0,cursory=0;
-void renderachar(int x,int y,unsigned char ch)
+#define DEFAULT_COLOR 448
+#define DEFAULT_COLOG 56
+#define DEFAULT_COLOB 7
+#define DEFAULT_COLOW 511
+static int command[25][66];
+static int commandcolor[25][66];
+static int memorie[WINDOW_SIZE];
+static bool iscommand = false;
+static int cursorx=0,cursory=0;
+void renderachar(int x, int y, int ch, int color)
 {
     if (ch < ' ' || ch > 127) ch = ' ';
-    const unsigned *bitmap =fontmap[ch - ' '];
-    unsigned cur_bitmap = bitmap[0];
+    const unsigned *nowposition =fontmap[ch - ' '];
+    unsigned cursor = nowposition[0];
     int i, j, pos = 0,k=128;
-    unsigned char* dest = memorie +x * WINDOW_WIDTH * CHAR_HEIGHT + y * CHAR_WIDTH + BEGIN_PIXEL;
+    int* dest = memorie +x * WINDOW_WIDTH * CHAR_HEIGHT + y * CHAR_WIDTH + BEGIN_PIXEL;
         for (i = 0; i < CHAR_HEIGHT; i ++)
         {
             for (j = 0; j < CHAR_WIDTH; j ++)
@@ -33,36 +37,50 @@ void renderachar(int x,int y,unsigned char ch)
                 if (pos == 32)
                 {
                     pos = 0;
-                    cur_bitmap = *(++ bitmap);
+                    cursor = *(++nowposition);
                 }
-                if (cur_bitmap & k)
-                    *dest = 255;
+                if (cursor & k)
+                    *dest = color;
                 else
                     *dest = 0;
                 dest ++;
                 k >>= 1;
             }
             pos += 8;
-            cur_bitmap >>= 8;
+            cursor >>= 8;
             k=128;
             dest += WINDOW_WIDTH - CHAR_WIDTH;
         }
     command[x][y]=ch;
+    commandcolor[x][y]=color;
 }
 
 void vga_init()
 {
-    iscommand = true;
-    for (int i=0;i<WINDOW_SIZE;i++)
+    iscommand = 1;
+    int i, j;
+    for (i=0;i<WINDOW_SIZE;i++)
         memorie[i]=0;
-    for (int i=0;i<ROW_NUM;i++)
-        for (int j=0;j<COLUMN_NUM;j++)
-            command[i][j]=0;
+    for (i=0;i<ROW_NUM;i++)
+        for (j=0;j<COLUMN_NUM;j++)
+            command[i][j]=0,commandcolor[i][j]=0;
     cursorx=0,cursory=0;
 }
-
-
-void vga_putchar(unsigned char thischar,unsigned short color)
+void vga_passpage()
+{
+    cursorx=cursorx-10;
+        int i, j;
+        for (i=0;i<ROW_NUM-10;i++)
+            for (j=0;j<COLUMN_NUM;j++)
+                command[i][j]=command[i+10][j],commandcolor[i][j]=commandcolor[i+10][j];
+        for (i=1;i<=10;i++)
+            for (j=0;j<COLUMN_NUM;j++)
+                command[ROW_NUM-i][j]=0;
+    for (i=0;i<ROW_NUM;i++)
+        for (j=0;j<COLUMN_NUM;j++)
+                renderachar(i,j,command[i][j],commandcolor[i][j]);
+}
+void vga_putch(int thischar, int color)
 {
     if (!iscommand) return;
     if (thischar=='\n' || thischar=='\r')
@@ -71,11 +89,21 @@ void vga_putchar(unsigned char thischar,unsigned short color)
         cursory=0;
 
     }
+    else if (thischar=='\b')
+    {
+    if (cursory!=0) cursory--;
+    else
+    {
+        cursorx--;
+        cursory=COLUMN_NUM-1;
+    }
+    renderachar(cursorx,cursory,0,color);
+    }
     else
     {
         if (thischar>=' ' && thischar<127)
         {
-            renderachar(cursorx,cursory,thischar);
+            renderachar(cursorx,cursory,thischar,color);
             cursory ++;
             if (cursory == COLUMN_NUM)
                 cursory=0,cursorx++;
@@ -84,17 +112,15 @@ void vga_putchar(unsigned char thischar,unsigned short color)
     }
     if (cursorx==ROW_NUM)
     {
-        cursorx--;
-        for (int i=0;i<WINDOW_SIZE-ONE_ROW_NUM;i++)
-            memorie[i]=memorie[i+ONE_ROW_NUM];
-        for (int i=WINDOW_SIZE-ONE_ROW_NUM;i<WINDOW_SIZE;i++)
-            memorie[i]=0;
-        for (int i=0;i<ROW_NUM-1;i++)
-            for (int j=0;j<COLUMN_NUM;j++)
-                command[i][j]=command[i+1][j];
-        for (int j=0;j<COLUMN_NUM;j++)
-            command[ROW_NUM-1][j]=0;
+        vga_passpage();
     }
+}
+void vga_putchar(int thischar)
+{
+    if (thischar<='9' && thischar>='0')
+        vga_putch(thischar,DEFAULT_COLOB);
+    else
+    vga_putch(thischar,DEFAULT_COLOW);
 }
 
 void changetoconsole()
@@ -102,7 +128,7 @@ void changetoconsole()
     iscommand=true;
     for (int i=0;i<ROW_NUM;i++)
         for (int j=0;j<COLUMN_NUM;j++)
-            renderachar(i,j,command[i][j]);
+            renderachar(i,j,command[i][j],commandcolor[i][j]);
 }
 
 void changetoapp()

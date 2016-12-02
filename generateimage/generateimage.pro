@@ -20,6 +20,10 @@ HEADERS  += mainwindow.h \
     stb_image_resize.h \
     stb_image_write.h \
     deal.h \
-    generatefont.h
+    generatefont.h \
+    generatebox.h \
+    boxdef.h \
+    box.h \
+    generatelevel.h
 
 FORMS    +=
